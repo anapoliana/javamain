@@ -1,0 +1,123 @@
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Scanner;
+
+
+class Contrato {
+    private int numeroContrato;
+    private Date dataContrato;
+    private BigDecimal valorTotal;
+
+    public Contrato(int numeroContrato, Date dataContrato, BigDecimal valorTotal) {
+        this.numeroContrato = numeroContrato;
+        this.dataContrato = dataContrato;
+        this.valorTotal = valorTotal;
+    }
+
+    public int getNumeroContrato() {
+        return numeroContrato;
+    }
+
+    public Date getDataContrato() {
+        return dataContrato;
+    }
+
+    public BigDecimal getValorTotal() {
+        return valorTotal;
+    }
+}
+
+
+interface ServicoPagamento {
+    BigDecimal calcularValorParcela(BigDecimal valorTotal, int numeroParcela);
+}
+
+
+class PaypalServico implements ServicoPagamento {
+
+    private static final BigDecimal JUROS_MENSAL = new BigDecimal("0.01");
+    private static final BigDecimal TAXA_PAGAMENTO = new BigDecimal("0.02");
+
+
+    public BigDecimal calcularValorParcela(BigDecimal valorTotal, int numeroParcela) {
+        BigDecimal valorParcela = valorTotal.divide(new BigDecimal(numeroParcela), 2, RoundingMode.HALF_UP);
+        BigDecimal juros = valorParcela.multiply(JUROS_MENSAL);
+        BigDecimal valorComJuros = valorParcela.add(juros);
+        BigDecimal valorFinal = valorComJuros.add(valorComJuros.multiply(TAXA_PAGAMENTO));
+        return valorFinal.setScale(2, RoundingMode.HALF_UP);
+    }
+}
+
+
+class Parcela {
+    private Date dataVencimento;
+    private BigDecimal valor;
+
+    public Parcela(Date dataVencimento, BigDecimal valor) {
+        this.dataVencimento = dataVencimento;
+        this.valor = valor;
+    }
+
+    public Date getDataVencimento() {
+        return dataVencimento;
+    }
+
+    public BigDecimal getValor() {
+        return valor;
+    }
+}
+
+
+class ProcessamentoContratos {
+
+    public static void main(String[] args) throws Exception {
+        Scanner sc = new Scanner(System.in);
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+
+
+        System.out.println("Entre com os dados do contrato:");
+        System.out.print("Número do contrato: ");
+        int numeroContrato = sc.nextInt();
+        System.out.print("Data do contrato (dd/MM/yyyy): ");
+        sc.nextLine();
+        String dataContratoStr = sc.nextLine();
+        Date dataContrato = sdf.parse(dataContratoStr);
+        System.out.print("Valor total do contrato: R$ ");
+        BigDecimal valorTotal = sc.nextBigDecimal();
+
+
+        System.out.print("Número de meses para parcelamento: ");
+        int numMeses = sc.nextInt();
+
+
+        Contrato contrato = new Contrato(numeroContrato, dataContrato, valorTotal);
+
+
+        ServicoPagamento servicoPagamento = new PaypalServico();
+
+
+        List<Parcela> parcelas = new ArrayList<>();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(dataContrato);
+
+        for (int i = 1; i <= numMeses; i++) {
+            calendar.add(Calendar.MONTH, 1);
+            Date dataParcela = calendar.getTime();
+            BigDecimal valorParcela = servicoPagamento.calcularValorParcela(valorTotal, i);
+            parcelas.add(new Parcela(dataParcela, valorParcela));
+        }
+
+
+        System.out.println("\nParcelas do contrato " + contrato.getNumeroContrato() + ":");
+        for (Parcela parcela : parcelas) {
+            System.out.println("Data: " + sdf.format(parcela.getDataVencimento()) + " - Valor: R$ " + parcela.getValor());
+        }
+
+        sc.close();
+    }
+}
